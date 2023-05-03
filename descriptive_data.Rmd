@@ -1,0 +1,73 @@
+---
+title: "NYC Taxi and Limousine - High Volume Dashboard"
+author: "John Cruz"
+date: "2023-04-01"
+output: pdf_document
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+The NYC Taxi and Limousine Commission publishes through their NYC Open Data program trip information on different designations. One such category are *High Volume For-Hire Vehicles* (HVFHV) which comprise of app based ride requests such as Uber and Lyft. The data being used was collected from their website and will be used for this analysis.
+
+**Source: ** 
+
+[TLC Trip Record Data](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page)
+[Taxi Zones](https://data.cityofnewyork.us/Transportation/NYC-Taxi-Zones/d3c5-ddgc)
+
+The NYC Taxi and Limousine Commission also provides data dictionaries for their datasets. 
+
+[HVFHV Data Dictionary](https://www.nyc.gov/assets/tlc/downloads/pdf/data_dictionary_trip_records_hvfhs.pdf)
+
+## Objective
+
+Create a Tableau Public dashboard that provides descriptive information based on the HVFHV industry for the month of August 2022.
+
+## Required Libraries
+
+To be able to read the parquet type files, you must have the *arrow* library installed. 
+
+```{r library, message=FALSE}
+library(tidyverse)
+library(arrow)
+```
+
+## Import Manhattan Trips Data
+
+```{r import-trips}
+trips_df <- read_parquet('manhattan_trips.parquet')
+```
+
+## Descriptive Statistics
+
+```{r rideshare}
+requested <-
+  trips_df |> 
+  group_by(app, shared_request_flag) |> 
+  summarise(count = n()) |> 
+  mutate(rideshare = 'requested') |> 
+  pivot_wider(names_from = shared_request_flag, values_from = count)
+
+matched <-
+  trips_df |> 
+  group_by(app, shared_match_flag) |> 
+  summarise(count = n()) |> 
+  mutate(rideshare = 'matched') |> 
+  pivot_wider(names_from = shared_match_flag, values_from = count)
+
+pct_requested <-
+  requested |> 
+  full_join(matched) |> 
+  mutate(total = N + Y) |> 
+  select(rideshare, Y) |> 
+  pivot_wider(names_from = rideshare, values_from = Y) |> 
+  mutate(pct_requested = matched / requested)
+
+write.table(pct_requested, file = 'rideshare.txt', row.names = FALSE)
+```
+
+
